@@ -1,18 +1,22 @@
 import React, { useState } from "react";
 import axios from "axios";
+import { FaCloudUploadAlt } from "react-icons/fa";
 
 function FileUploadForm() {
   const [selectedFile, setSelectedFile] = useState(null);
-  const [requestId, setRequestId] = useState(""); // State for storing request ID
+  const [requestId, setRequestId] = useState("");
+  const [isUploading, setIsUploading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
 
   const handleFileChange = (event) => {
     setSelectedFile(event.target.files[0]);
+    setErrorMessage("");
   };
 
   const handleSubmit = async (event) => {
     event.preventDefault();
     if (!selectedFile) {
-      alert("Please select a file");
+      setErrorMessage("Please select a file");
       return;
     }
 
@@ -20,6 +24,9 @@ function FileUploadForm() {
     formData.append("mycsvfile", selectedFile);
 
     try {
+      setIsUploading(true); // Set uploading state to true
+      setErrorMessage(""); // Clear previous error message
+
       const response = await axios.post(
         `${process.env.REACT_APP_BASE_URL}/upload-csv`,
         formData,
@@ -30,21 +37,26 @@ function FileUploadForm() {
         }
       );
 
-      alert(response.data.message);
-      setRequestId(response.data.data.requestId); // Assuming your API response has requestId
-      setSelectedFile(null); // Reset the selected file
+      setRequestId(response.data.data.requestId);
+      setSelectedFile(null);
       console.log("CSV Uploaded Successfully:", response.data);
     } catch (error) {
       console.error("Error uploading file:", error);
-      alert("Failed to upload file");
+      setErrorMessage("Failed to upload file");
+    } finally {
+      setIsUploading(false);
     }
+  };
+
+  const handleAlertClose = () => {
+    setRequestId("");
   };
 
   return (
     <form onSubmit={handleSubmit}>
       <div className="mb-3">
         <label htmlFor="formFileLg" className="form-label">
-          Upload CSV File:
+          <FaCloudUploadAlt /> Upload CSV File:
         </label>
         <input
           className="form-control form-control-lg"
@@ -55,12 +67,28 @@ function FileUploadForm() {
         />
       </div>
 
-      <button className="btn btn-primary w-100" type="submit">
-        Upload
+      {errorMessage && ( // Show error message if exists
+        <div className="alert alert-danger" role="alert">
+          {errorMessage}
+        </div>
+      )}
+
+      <button
+        className="btn btn-primary w-100"
+        type="submit"
+        disabled={isUploading}
+      >
+        {isUploading ? "Uploading..." : "Upload"}
       </button>
 
-      {requestId && ( // Conditionally render the request ID
-        <div className="mt-3 alert alert-info">
+      {requestId && ( 
+        <div className="mt-3 alert alert-info" role="alert">
+          <button
+            type="button"
+            className="btn-close"
+            onClick={handleAlertClose}
+            aria-label="Close"
+          ></button>
           Your Request ID is: <strong>{requestId}</strong>
         </div>
       )}
