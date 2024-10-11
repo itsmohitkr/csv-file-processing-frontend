@@ -21,7 +21,7 @@ function FileUploadForm() {
 
     try {
       const response = await axios.post(
-        "https://csv-file-process-application.onrender.com/upload-csv",
+        `${process.env.REACT_APP_BASE_URL}/upload-csv`,
         formData,
         {
           headers: {
