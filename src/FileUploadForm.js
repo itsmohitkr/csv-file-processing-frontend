@@ -9,6 +9,8 @@ function FileUploadForm() {
   const [errorMessage, setErrorMessage] = useState("");
 
   const handleFileChange = (event) => {
+    console.log(event.target.files[0]);
+    
     setSelectedFile(event.target.files[0]);
     setErrorMessage("");
   };
@@ -19,27 +21,43 @@ function FileUploadForm() {
       setErrorMessage("Please select a file");
       return;
     }
-
-    const formData = new FormData();
-    formData.append("mycsvfile", selectedFile);
+    console.log(selectedFile);
 
     try {
       setIsUploading(true); // Set uploading state to true
       setErrorMessage(""); // Clear previous error message
 
-      const response = await axios.post(
+      // Step 1: Request presigned URL from the backend
+      const metadataResponse = await axios.post(
         `${process.env.REACT_APP_BASE_URL}/upload-csv`,
-        formData,
+        {
+          filename: selectedFile.name, // Send the file name or any other required metadata
+          filetype: selectedFile.type, // Send the file type if needed
+          size:selectedFile.size
+        },
         {
           headers: {
-            "Content-Type": "multipart/form-data",
+            "Content-Type": "application/json",
           },
         }
       );
 
-      setRequestId(response.data.data.requestId);
+      const formData = new FormData();
+      formData.append("mycsvfile", selectedFile);
+
+      const presignedUrl = metadataResponse.data.data.uploadUrl; // Get the presigned URL from the response
+      setRequestId(metadataResponse.data.data.requestId);
+
+      // Step 2: Upload the file to S3 using the presigned URL
+      const uploadResponse = await axios.put(presignedUrl, selectedFile, {
+        headers: {
+          "Content-Type": selectedFile.type, // Use the correct content type
+        },
+      });
+
+      console.log("CSV Uploaded Successfully:", uploadResponse.data);
+
       setSelectedFile(null);
-      console.log("CSV Uploaded Successfully:", response.data);
     } catch (error) {
       console.error("Error uploading file:", error);
       setErrorMessage("Failed to upload file");
@@ -81,7 +99,7 @@ function FileUploadForm() {
         {isUploading ? "Uploading..." : "Upload"}
       </button>
 
-      {requestId && ( 
+      {requestId && (
         <div className="mt-3 alert alert-info" role="alert">
           <button
             type="button"
