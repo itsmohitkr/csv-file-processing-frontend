@@ -6,9 +6,13 @@ function RequestIdForm() {
   const [requestId, setRequestId] = useState("");
   const [fileExists, setFileExists] = useState(false);
   const [fileUrl, setFileUrl] = useState("");
+  const [errorMessage, setErrorMessage] = useState(""); // New state for error message
 
   const handleSubmit = async (event) => {
     event.preventDefault();
+    setErrorMessage(""); // Clear previous error message
+    setFileExists(false); // Reset fileExists in case of new request
+
     if (!requestId) {
       alert("Please enter a Request ID");
       return;
@@ -18,18 +22,29 @@ function RequestIdForm() {
       const response = await axios.get(
         `${process.env.REACT_APP_BASE_URL}/get-processed-csv/${requestId}`
       );
-      console.log("Processed CSV:", response.data.data);
-      if (response.data.data.updated_file_url) {
+      console.log("Processed CSV:", response);
+
+      if (response.data?.data?.updated_file_url) {
         setFileExists(true);
-          setFileUrl(response.data.data.updated_file_url); // Store file URL
-          setRequestId("");
-      } else {
+        setFileUrl(response.data.data.updated_file_url); // Store file URL
+        setRequestId(""); // Clear input field after file is ready
+      } else if (response.data.data === "Under process...") {
         setFileExists(false);
-        alert("No file found for the given Request ID");
+        alert("Your file is still being processed. Please try again later.");
+      } else {
+        // Handle any other unexpected responses
+        setErrorMessage(
+          response.data.message || "An unexpected error occurred."
+        );
       }
     } catch (error) {
       console.error("Error retrieving CSV:", error);
-      alert("Failed to retrieve file");
+      if (error.response && error.response.data && error.response.data.error) {
+        // Display the backend error message (e.g., invalid requestId)
+        setErrorMessage(error.response.data.error);
+      } else {
+        setErrorMessage("Failed to retrieve the file. Please try again.");
+      }
     }
   };
 
@@ -48,6 +63,12 @@ function RequestIdForm() {
           onChange={(e) => setRequestId(e.target.value)}
         />
       </div>
+
+      {errorMessage && (
+        <div className="alert alert-danger" role="alert">
+          {errorMessage}
+        </div>
+      )}
 
       {!fileExists && (
         <button className="btn btn-success btn-lg w-100" type="submit">
